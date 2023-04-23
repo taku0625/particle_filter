@@ -8,18 +8,35 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_msgs
   nav_msgs
 )
-catkin_package()
+
+catkin_package(
+  INCLUDE_DIRS
+    include
+  LIBRARIES
+    ${PROJECT_NAME}
+  CATKIN_DEPENDS
+    roscpp
+    std_msgs
+    sensor_msgs
+    tf2_msgs
+    nav_msgs
+)
 
 include_directories(
+  include
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(basic_simple_talker   src/basic_simple_talker.cpp)
-add_executable(basic_simple_listener src/basic_simple_listener.cpp)
+add_library(${PROJECT_NAME}
+  src/${PROJECT_NAME}.cpp
+)
 
-target_link_libraries(basic_simple_talker
+add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.cpp)
+
+target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
 )
-target_link_libraries(basic_simple_listener
-  ${catkin_LIBRARIES}
+
+target_link_libraries(${PROJECT_NAME}_node
+  ${PROJECT_NAME}
 )
