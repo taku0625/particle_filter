@@ -50,9 +50,6 @@ private:
 
     Pose pose_ = {0.0, 0.0, 0.0};
 
-    bool odom_flag_ = false;
-    bool scan_flag_ = false;
-
     double delta_linear_;
     double delta_angular_;
 
@@ -79,8 +76,6 @@ private:
     const double z_rand_ = 0.05;
     const double z_hit_ = 0.9;
     const double RESAMPLE_THRESHOLD_ = 0.5;
-
-    bool flag_ = true;
 };
 
 #endif

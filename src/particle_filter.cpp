@@ -40,10 +40,8 @@ void ParticleFilter::mclLoop()
             return a + b * b;
         }
     );
-    // ROS_INFO("%lf", total_squrares_of_likelihoods);
     double effective_sample_size = 1.0 / total_squrares_of_likelihoods;
     double threshold = (double)particles_.size() * RESAMPLE_THRESHOLD_;
-    // ROS_INFO("%lf", effective_sample_size);
 
     if(! (effective_sample_size > threshold))
     {
@@ -53,13 +51,11 @@ void ParticleFilter::mclLoop()
         estimate_pose.y = pose_.position_y;
         estimate_pose.z = pose_.angule_z;
         pub_tf_.publish(estimate_pose);
-        odom_flag_ = false;
-        scan_flag_ = false;
-
-        // ROS_INFO("%lf", pose_.position_x);
-        // ROS_INFO("%lf", pose_.position_y);
-        // ROS_INFO("%lf", pose_.angule_z);
     }
+
+    ROS_INFO("%lf", pose_.position_x);
+    ROS_INFO("%lf", pose_.position_y);
+    ROS_INFO("%lf", pose_.angule_z);
 }
 
 void ParticleFilter::readMap(std::string yaml_file_path, std::string img_file_path)
@@ -114,10 +110,6 @@ void ParticleFilter::initializeParticles()
         particles_[i].position_x = dist_1(engine);
         particles_[i].position_y = dist_1(engine);
         particles_[i].angule_z = dist_2(engine);
-        // ROS_INFO("x%lf", particles_[i].position_x);
-        // ROS_INFO("y%lf", particles_[i].position_y);
-        // ROS_INFO("z%lf", particles_[i].angule_z);
-
     }
 }
 
@@ -129,9 +121,6 @@ void ParticleFilter::updateParticlesByOperatingModel(const double delta_linear, 
     double angular_noise_std = std::sqrt(
         ODOM_NOISES_[2] * std::pow(delta_linear, 2.0) + ODOM_NOISES_[3] * std::pow(delta_angular, 2.0)
     );
-
-    // ROS_INFO("l%lf", linear_noise_std);
-    // ROS_INFO("a%lf", angular_noise_std);
 
     std::random_device seed_gen;
     std::default_random_engine engine(seed_gen());
@@ -154,16 +143,13 @@ std::vector<double> ParticleFilter::calculateLikelihoods(const std::vector<doubl
     for(size_t i = 0; i < particles_.size(); ++i)
     {
         double likelihood = calulateLikelihoodPerParticle(particles_[i], laser_ranges);
-        ROS_INFO("%lf", likelihood);
         likelihoods[i] = likelihood;
         total_likelihood += likelihood;
-        // ROS_INFO("%lf", total_likelihood);
     }
     // normalize likelihood
     for(size_t i = 0; i < particles_.size(); ++i)
     {
         normalized_likelihoods[i] = likelihoods[i] / total_likelihood;
-        // ROS_INFO("%lf", normalized_likelihoods[i]);
     }
     return normalized_likelihoods;
 }
@@ -173,7 +159,6 @@ void ParticleFilter::estimatePose(const std::vector<double>& particle_weights)
     ParticleFilter::Pose estimate_pose = {0.0, 0.0, 0.0};
     for(size_t i = 0; i < particles_.size(); ++i)
     {
-        // ROS_INFO("%lf", particle_weights[i]);
         estimate_pose.position_x += particle_weights[i] * particles_[i].position_x;
         estimate_pose.position_y += particle_weights[i] * particles_[i].position_y;
 
@@ -215,11 +200,8 @@ double ParticleFilter::calulateLikelihoodPerParticle(const ParticleFilter::Pose 
     for(size_t i = 0; i < laser_ranges.size(); i += SCAN_STEP_)
     {
         double p_LFM = z_max_ * p_max[i] + z_rand_ * p_rand + z_hit_ * p_hit[i];
-        // ROS_INFO("%lf", p_LFM);
         p_LFM = p_LFM > 1.0 ? 1.0 : p_LFM;
         likelihood += std::log(p_LFM);
-
-        // ROS_INFO("%lf", likelihood);
     }
 
     return std::exp(likelihood);
@@ -255,31 +237,16 @@ std::vector<double> ParticleFilter::pHit(const ParticleFilter::Pose pose, const 
         if(0 <= ogm_laser_position_x && ogm_laser_position_x < map_width_ && 0 <= ogm_laser_position_y && ogm_laser_position_y < map_height_)
         {
             double distance_field_value = (double)distance_field_.at<float>(ogm_laser_position_x, ogm_laser_position_y);
-            // ROS_INFO("d%lf", distance_field_value);
             
             p_hit[i] = 1.0 / std::sqrt(2.0 * M_PI * LFM_VAR_) 
                        * std::exp(- std::pow(distance_field_value, 2.0) / (2.0 * LFM_VAR_))
                        * map_resolution_;
-            // ROS_INFO("%lf", p_hit[i]);
         }
         else
         {
             p_hit[i] = 0.0;
         }
-        
-        
-        if(flag_){
-            // ROS_INFO("i%ld", i);
-            // ROS_INFO("x%lf", laser_position_x);
-            // ROS_INFO("y%lf", laser_position_y);
-            // ROS_INFO("a%d", ogm_laser_position_x);
-            // ROS_INFO("b%d", ogm_laser_position_y);
-            // ROS_INFO("c%lf", laser_ranges[i]);
-        }
-        
     }
-    flag_ = false;
-    // ROS_INFO("one scan");
     return p_hit;
 }
 
