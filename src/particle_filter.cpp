@@ -34,12 +34,8 @@ void ParticleFilter::mclLoop()
     std::vector<double> likelihoods = calculateLikelihoods(laser_ranges);
     estimatePose(likelihoods);
 
-    double total_squrares_of_likelihoods = std::accumulate(
-        likelihoods.begin(), likelihoods.end(), 0.0, [](double a, double b)
-        {
-            return a + b * b;
-        }
-    );
+    double total_squrares_of_likelihoods = std::accumulate(likelihoods.begin(), likelihoods.end(), 0.0,
+                                                           [](double a, double b){ return a + b * b; });
     double effective_sample_size = 1.0 / total_squrares_of_likelihoods;
     double threshold = (double)particles_.size() * RESAMPLE_THRESHOLD_;
 
@@ -102,8 +98,8 @@ void ParticleFilter::initializeParticles()
 
     std::random_device seed_gen;
     std::default_random_engine engine(seed_gen());
-    std::normal_distribution<double> dist_1(0.0, std::sqrt(0.5));
-    std::uniform_real_distribution<double> dist_2(0.0, std::sqrt(3.0 * M_PI / 180.0));
+    std::normal_distribution<double> dist_1(0.0, 0.5);
+    std::uniform_real_distribution<double> dist_2(0.0, 3.0 * M_PI / 180.0);
 
     for(size_t i = 0; i < PARTICLE_NUM_; ++i)
     {
@@ -137,20 +133,28 @@ void ParticleFilter::updateParticlesByOperatingModel(const double delta_linear, 
 
 std::vector<double> ParticleFilter::calculateLikelihoods(const std::vector<double>& laser_ranges)
 {
+    std::vector<double> log_likelihoods(particles_.size());
     std::vector<double> likelihoods(particles_.size());
     std::vector<double> normalized_likelihoods(particles_.size());
-    double total_likelihood = 0;
+
     for(size_t i = 0; i < particles_.size(); ++i)
     {
-        double likelihood = calulateLikelihoodPerParticle(particles_[i], laser_ranges);
-        likelihoods[i] = likelihood;
-        total_likelihood += likelihood;
+        log_likelihoods[i] = calulateLogLikelihoodPerParticle(particles_[i], laser_ranges);
     }
+
+    // likelihood shift to prevent underflow
+    double max_log_likelihood = *std::max_element(log_likelihoods.begin(), log_likelihoods.end());
+    std::transform(log_likelihoods.begin(), log_likelihoods.end(), log_likelihoods.begin(),
+                   [max_log_likelihood](double x){ return x - max_log_likelihood; });
+
+    std::transform(log_likelihoods.begin(), log_likelihoods.end(), likelihoods.begin(),
+                   [](double x){ return std::exp(x); });
+    double total_likelihood = std::accumulate(likelihoods.begin(), likelihoods.end(), 0.0);
+
     // normalize likelihood
-    for(size_t i = 0; i < particles_.size(); ++i)
-    {
-        normalized_likelihoods[i] = likelihoods[i] / total_likelihood;
-    }
+    std::transform(likelihoods.begin(), likelihoods.end(), normalized_likelihoods.begin(),
+                   [total_likelihood](double x){ return x / total_likelihood; });
+
     return normalized_likelihoods;
 }
 
@@ -159,6 +163,7 @@ void ParticleFilter::estimatePose(const std::vector<double>& particle_weights)
     ParticleFilter::Pose estimate_pose = {0.0, 0.0, 0.0};
     for(size_t i = 0; i < particles_.size(); ++i)
     {
+        // ROS_INFO("%lf", particle_weights[i]);
         estimate_pose.position_x += particle_weights[i] * particles_[i].position_x;
         estimate_pose.position_y += particle_weights[i] * particles_[i].position_y;
 
@@ -189,9 +194,9 @@ void ParticleFilter::resampleParticles(const std::vector<double>& particle_weigh
     }
 }
 
-double ParticleFilter::calulateLikelihoodPerParticle(const ParticleFilter::Pose pose, const std::vector<double>& laser_ranges)
+double ParticleFilter::calulateLogLikelihoodPerParticle(const ParticleFilter::Pose pose, const std::vector<double>& laser_ranges)
 {
-    double likelihood = 0.0;
+    double log_likelihood = 0.0;
 
     std::vector<double> p_max = pMax(laser_ranges);
     double p_rand = pRand();
@@ -201,10 +206,10 @@ double ParticleFilter::calulateLikelihoodPerParticle(const ParticleFilter::Pose 
     {
         double p_LFM = z_max_ * p_max[i] + z_rand_ * p_rand + z_hit_ * p_hit[i];
         p_LFM = p_LFM > 1.0 ? 1.0 : p_LFM;
-        likelihood += std::log(p_LFM);
+        log_likelihood += std::log(p_LFM);
     }
 
-    return std::exp(likelihood);
+    return log_likelihood;
 }
 
 std::vector<double> ParticleFilter::pMax(const std::vector<double>& laser_ranges)
@@ -224,13 +229,15 @@ double ParticleFilter::pRand()
 
 std::vector<double> ParticleFilter::pHit(const ParticleFilter::Pose pose, const std::vector<double>& laser_ranges)
 {
-    // ROS_INFO("%lf", pose.position_x);
+    // ROS_INFO("%lf", pose.angule_z);
     std::vector<double> p_hit(laser_ranges.size());
     for(size_t i = 0; i < laser_ranges.size(); i += SCAN_STEP_)
     {
         double laser_angle = pose.angule_z + SCAN_ANGLE_MIN_ + (double)i * SCAN_ANGLE_INCREMENT_;
-        double laser_position_x = pose.position_x + laser_ranges[i] * std::cos(laser_angle);
-        double laser_position_y = pose.position_y + laser_ranges[i] * std::sin(laser_angle);
+        // double laser_position_x = pose.position_x + laser_ranges[i] * std::cos(laser_angle);
+        // double laser_position_y = pose.position_y + laser_ranges[i] * std::sin(laser_angle);
+        double laser_position_x = pose.position_x + x_lider_ * std::cos(pose.angule_z) + laser_ranges[i] * std::cos(laser_angle);
+        double laser_position_y = pose.position_y + x_lider_ * std::sin(pose.angule_z) + laser_ranges[i] * std::sin(laser_angle);
         // converted to opencv coordinate axes
         int ogm_laser_position_x = (laser_position_x - map_origin_[0]) / map_resolution_;
         int ogm_laser_position_y = map_height_ - 1 - (laser_position_y - map_origin_[1]) / map_resolution_;

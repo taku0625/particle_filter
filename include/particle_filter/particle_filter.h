@@ -32,7 +32,7 @@ protected:
     void estimatePose(const std::vector<double>& particle_weights);
     void resampleParticles(const std::vector<double>& particle_weights);
 
-    double calulateLikelihoodPerParticle(const ParticleFilter::Pose pose, const std::vector<double>& laser_ranges);
+    double calulateLogLikelihoodPerParticle(const ParticleFilter::Pose pose, const std::vector<double>& laser_ranges);
     std::vector<double> pMax(const std::vector<double>& laser_ranges);
     double pRand();
     std::vector<double> pHit(const ParticleFilter::Pose pose, const std::vector<double>& laser_ranges);
@@ -76,6 +76,8 @@ private:
     const double z_rand_ = 0.05;
     const double z_hit_ = 0.9;
     const double RESAMPLE_THRESHOLD_ = 0.5;
+    
+    const double x_lider_ = 0.5;
 };
 
 #endif
