@@ -47,13 +47,12 @@ void ParticleFilter::mclLoop()
 
     if(! (effective_sample_size > threshold))
     {
-        ROS_INFO("hfgdushaguh");
         resampleParticles(likelihoods);
     }
 
-    // ROS_INFO("%lf", estimate_pose_->x);
-    // ROS_INFO("%lf", estimate_pose_->y);
-    // ROS_INFO("%lf", estimate_pose_->theta);
+    ROS_INFO("%lf", estimate_pose_->x);
+    ROS_INFO("%lf", estimate_pose_->y);
+    ROS_INFO("%lf", estimate_pose_->theta);
 }
 
 void ParticleFilter::readMap(std::string yaml_file_path, std::string img_file_path)
@@ -108,9 +107,6 @@ void ParticleFilter::initializeParticles()
         particles_[i]->x = dist_1(engine);
         particles_[i]->y = dist_1(engine);
         particles_[i]->theta = dist_2(engine);
-        // ROS_INFO("%lf", particles_[i]->x);
-        // ROS_INFO("%lf", particles_[i]->y);
-        // ROS_INFO("%lf", particles_[i]->theta);
     }
 }
 
@@ -130,17 +126,10 @@ void ParticleFilter::updateParticlesByOperatingModel(const double delta_linear, 
 
     for(size_t i = 0; i < particles_.size(); ++i)
     {
-        // ROS_INFO("%lf", particles_[i]->x);
-        // ROS_INFO("%lf", particles_[i]->y);
-        // ROS_INFO("%lf", particles_[i]->theta);
         particles_[i]->x += delta_linear_with_noise(engine) * std::cos(particles_[i]->theta);
         particles_[i]->y += delta_linear_with_noise(engine) * std::sin(particles_[i]->theta);
         particles_[i]->theta += delta_angular_with_noise(engine);
-        ROS_INFO("%lf", particles_[i]->x);
-        ROS_INFO("%lf", particles_[i]->y);
-        ROS_INFO("%lf", particles_[i]->theta);
     }
-    ROS_INFO("dsafkhdskaj");
 };
 
 std::vector<double> ParticleFilter::calculateLikelihoods(const std::vector<double>& laser_ranges)
@@ -181,9 +170,6 @@ void ParticleFilter::estimatePose(const std::vector<double>& particle_weights)
     {
         estimate_pose->x += particle_weights[i] * particles_[i]->x;
         estimate_pose->y += particle_weights[i] * particles_[i]->y;
-        // ROS_INFO("%lf", particle_weights[i]);
-        // ROS_INFO("%lf", particles_[i]->x);
-        // ROS_INFO("%lf", particles_[i]->y);
 
         double delta_theta = estimate_pose_->theta - particles_[i]->theta;
         // bring delta_theta into -pi < z < pi
@@ -206,15 +192,11 @@ void ParticleFilter::resampleParticles(const std::vector<double>& particle_weigh
 
     for(size_t i = 0; i < particles_.size(); ++i)
     {
-        // ROS_INFO("%lf", particles_[i]->x);
-        // ROS_INFO("%lf", particles_[i]->y);
-        // ROS_INFO("%lf", particles_[i]->theta);
         auto it = std::lower_bound(particle_weight_partial_sums.begin(), particle_weight_partial_sums.end(), dist_1(engine));
         size_t j = std::distance(particle_weight_partial_sums.begin(), it);
         particles_[i] = particles_[j];
         // ROS_INFO("%ld", j);
     }
-    // ROS_INFO("dklsjald;fj");
 }
 
 double ParticleFilter::calulateLogLikelihoodPerParticle(const geometry_msgs::Pose2D::ConstPtr& pose, const std::vector<double>& laser_ranges)
@@ -252,7 +234,6 @@ double ParticleFilter::pRand()
 
 std::vector<double> ParticleFilter::pHit(const geometry_msgs::Pose2D::ConstPtr& pose, const std::vector<double>& laser_ranges)
 {
-    // ROS_INFO("%lf", pose->theta);
     std::vector<double> p_hit(laser_ranges.size());
     for(size_t i = 0; i < laser_ranges.size(); i += SCAN_STEP_)
     {
