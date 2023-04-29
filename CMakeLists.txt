@@ -7,22 +7,26 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   sensor_msgs
+  tf2
   tf2_msgs
+  tf2_ros
   nav_msgs
   )
   
-  catkin_package(
-    INCLUDE_DIRS
-      include
-    LIBRARIES
-      ${PROJECT_NAME}
-    CATKIN_DEPENDS
-      roscpp
-      std_msgs
-      sensor_msgs
-      tf2_msgs
-      nav_msgs
-    )
+catkin_package(
+  INCLUDE_DIRS
+    include
+  LIBRARIES
+    ${PROJECT_NAME}
+  CATKIN_DEPENDS
+    roscpp
+    std_msgs
+    sensor_msgs
+    tf2
+    tf2_msgs
+    tf2_ros
+    nav_msgs
+  )
 
 include_directories(
   include

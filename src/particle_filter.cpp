@@ -4,6 +4,8 @@
 #include <opencv2/opencv.hpp>
 #include <yaml-cpp/yaml.h>
 #include <geometry_msgs/Point.h>
+#include <tf2/convert.h>
+
 
 using namespace std;
 
@@ -11,6 +13,10 @@ ParticleFilter::ParticleFilter(ros::NodeHandle& nh)
     : nh_(nh)
 {
     readMap("/home/takumiti/catkin_ws/src/particle_filter/config/ogm.yaml", "/home/takumiti/catkin_ws/src/particle_filter/config/ogm.pgm");
+    estimate_pose_.reset(new geometry_msgs::Pose2D());
+    estimate_pose_->x = 0.0;
+    estimate_pose_->y = 0.0;
+    estimate_pose_->theta = 0.0;
     initializeParticles();
 
     pub_tf_ = nh_.advertise<geometry_msgs::Point>("/estimate_pose", 1, this);
@@ -41,24 +47,19 @@ void ParticleFilter::mclLoop()
 
     if(! (effective_sample_size > threshold))
     {
+        ROS_INFO("hfgdushaguh");
         resampleParticles(likelihoods);
-        geometry_msgs::Point estimate_pose;
-        estimate_pose.x = pose_.position_x;
-        estimate_pose.y = pose_.position_y;
-        estimate_pose.z = pose_.angule_z;
-        pub_tf_.publish(estimate_pose);
     }
 
-    ROS_INFO("%lf", pose_.position_x);
-    ROS_INFO("%lf", pose_.position_y);
-    ROS_INFO("%lf", pose_.angule_z);
+    // ROS_INFO("%lf", estimate_pose_->x);
+    // ROS_INFO("%lf", estimate_pose_->y);
+    // ROS_INFO("%lf", estimate_pose_->theta);
 }
 
 void ParticleFilter::readMap(std::string yaml_file_path, std::string img_file_path)
 {
     YAML::Node lconf = YAML::LoadFile(yaml_file_path);
     map_resolution_ = lconf["resolution"].as<double>();
-
     map_origin_ = lconf["origin"].as<std::vector<double> >();
 
     cv::Mat tmp_map_img = cv::imread(img_file_path, 0);
@@ -103,9 +104,13 @@ void ParticleFilter::initializeParticles()
 
     for(size_t i = 0; i < PARTICLE_NUM_; ++i)
     {
-        particles_[i].position_x = dist_1(engine);
-        particles_[i].position_y = dist_1(engine);
-        particles_[i].angule_z = dist_2(engine);
+        particles_[i].reset(new geometry_msgs::Pose2D());
+        particles_[i]->x = dist_1(engine);
+        particles_[i]->y = dist_1(engine);
+        particles_[i]->theta = dist_2(engine);
+        // ROS_INFO("%lf", particles_[i]->x);
+        // ROS_INFO("%lf", particles_[i]->y);
+        // ROS_INFO("%lf", particles_[i]->theta);
     }
 }
 
@@ -125,10 +130,17 @@ void ParticleFilter::updateParticlesByOperatingModel(const double delta_linear, 
 
     for(size_t i = 0; i < particles_.size(); ++i)
     {
-        particles_[i].position_x += delta_linear_with_noise(engine) * std::cos(particles_[i].angule_z);
-        particles_[i].position_y += delta_linear_with_noise(engine) * std::sin(particles_[i].angule_z);
-        particles_[i].angule_z += delta_angular_with_noise(engine);
+        // ROS_INFO("%lf", particles_[i]->x);
+        // ROS_INFO("%lf", particles_[i]->y);
+        // ROS_INFO("%lf", particles_[i]->theta);
+        particles_[i]->x += delta_linear_with_noise(engine) * std::cos(particles_[i]->theta);
+        particles_[i]->y += delta_linear_with_noise(engine) * std::sin(particles_[i]->theta);
+        particles_[i]->theta += delta_angular_with_noise(engine);
+        ROS_INFO("%lf", particles_[i]->x);
+        ROS_INFO("%lf", particles_[i]->y);
+        ROS_INFO("%lf", particles_[i]->theta);
     }
+    ROS_INFO("dsafkhdskaj");
 };
 
 std::vector<double> ParticleFilter::calculateLikelihoods(const std::vector<double>& laser_ranges)
@@ -160,21 +172,27 @@ std::vector<double> ParticleFilter::calculateLikelihoods(const std::vector<doubl
 
 void ParticleFilter::estimatePose(const std::vector<double>& particle_weights)
 {
-    ParticleFilter::Pose estimate_pose = {0.0, 0.0, 0.0};
+    geometry_msgs::Pose2D::Ptr estimate_pose(new geometry_msgs::Pose2D());
+    estimate_pose->x = 0.0;
+    estimate_pose->y = 0.0;
+    estimate_pose->theta = 0.0;
+
     for(size_t i = 0; i < particles_.size(); ++i)
     {
+        estimate_pose->x += particle_weights[i] * particles_[i]->x;
+        estimate_pose->y += particle_weights[i] * particles_[i]->y;
         // ROS_INFO("%lf", particle_weights[i]);
-        estimate_pose.position_x += particle_weights[i] * particles_[i].position_x;
-        estimate_pose.position_y += particle_weights[i] * particles_[i].position_y;
+        // ROS_INFO("%lf", particles_[i]->x);
+        // ROS_INFO("%lf", particles_[i]->y);
 
-        double delta_angule_z = pose_.angule_z - particles_[i].angule_z;
-        // bring delta_angule_z into -pi < z < pi
-        int n = delta_angule_z / M_PI;
-        delta_angule_z -= n * M_PI;
-        estimate_pose.angule_z += particle_weights[i] * delta_angule_z;
+        double delta_theta = estimate_pose_->theta - particles_[i]->theta;
+        // bring delta_theta into -pi < z < pi
+        int n = delta_theta / M_PI;
+        delta_theta -= n * M_PI;
+        estimate_pose->theta += particle_weights[i] * delta_theta;
     }
-    estimate_pose.angule_z = pose_.angule_z - estimate_pose.angule_z;
-    pose_ = estimate_pose;
+    estimate_pose->theta = estimate_pose_->theta - estimate_pose->theta;
+    estimate_pose_ = estimate_pose;
 }
 
 void ParticleFilter::resampleParticles(const std::vector<double>& particle_weights)
@@ -188,13 +206,18 @@ void ParticleFilter::resampleParticles(const std::vector<double>& particle_weigh
 
     for(size_t i = 0; i < particles_.size(); ++i)
     {
+        // ROS_INFO("%lf", particles_[i]->x);
+        // ROS_INFO("%lf", particles_[i]->y);
+        // ROS_INFO("%lf", particles_[i]->theta);
         auto it = std::lower_bound(particle_weight_partial_sums.begin(), particle_weight_partial_sums.end(), dist_1(engine));
         size_t j = std::distance(particle_weight_partial_sums.begin(), it);
         particles_[i] = particles_[j];
+        // ROS_INFO("%ld", j);
     }
+    // ROS_INFO("dklsjald;fj");
 }
 
-double ParticleFilter::calulateLogLikelihoodPerParticle(const ParticleFilter::Pose pose, const std::vector<double>& laser_ranges)
+double ParticleFilter::calulateLogLikelihoodPerParticle(const geometry_msgs::Pose2D::ConstPtr& pose, const std::vector<double>& laser_ranges)
 {
     double log_likelihood = 0.0;
 
@@ -204,7 +227,7 @@ double ParticleFilter::calulateLogLikelihoodPerParticle(const ParticleFilter::Po
 
     for(size_t i = 0; i < laser_ranges.size(); i += SCAN_STEP_)
     {
-        double p_LFM = z_max_ * p_max[i] + z_rand_ * p_rand + z_hit_ * p_hit[i];
+        double p_LFM = Z_MAX_ * p_max[i] + Z_RAND_ * p_rand + Z_HIT_ * p_hit[i];
         p_LFM = p_LFM > 1.0 ? 1.0 : p_LFM;
         log_likelihood += std::log(p_LFM);
     }
@@ -227,17 +250,17 @@ double ParticleFilter::pRand()
     return 1 / MAX_LASER_RANGE_ * map_resolution_;
 }
 
-std::vector<double> ParticleFilter::pHit(const ParticleFilter::Pose pose, const std::vector<double>& laser_ranges)
+std::vector<double> ParticleFilter::pHit(const geometry_msgs::Pose2D::ConstPtr& pose, const std::vector<double>& laser_ranges)
 {
-    // ROS_INFO("%lf", pose.angule_z);
+    // ROS_INFO("%lf", pose->theta);
     std::vector<double> p_hit(laser_ranges.size());
     for(size_t i = 0; i < laser_ranges.size(); i += SCAN_STEP_)
     {
-        double laser_angle = pose.angule_z + SCAN_ANGLE_MIN_ + (double)i * SCAN_ANGLE_INCREMENT_;
-        // double laser_position_x = pose.position_x + laser_ranges[i] * std::cos(laser_angle);
-        // double laser_position_y = pose.position_y + laser_ranges[i] * std::sin(laser_angle);
-        double laser_position_x = pose.position_x + x_lider_ * std::cos(pose.angule_z) + laser_ranges[i] * std::cos(laser_angle);
-        double laser_position_y = pose.position_y + x_lider_ * std::sin(pose.angule_z) + laser_ranges[i] * std::sin(laser_angle);
+        double laser_angle = pose->theta + SCAN_ANGLE_MIN_ + (double)i * SCAN_ANGLE_INCREMENT_;
+        // double laser_position_x = pose->x + laser_ranges[i] * std::cos(laser_angle);
+        // double laser_position_y = pose->y + laser_ranges[i] * std::sin(laser_angle);
+        double laser_position_x = pose->x + X_LIDER_ * std::cos(pose->theta) + laser_ranges[i] * std::cos(laser_angle);
+        double laser_position_y = pose->y + X_LIDER_ * std::sin(pose->theta) + laser_ranges[i] * std::sin(laser_angle);
         // converted to opencv coordinate axes
         int ogm_laser_position_x = (laser_position_x - map_origin_[0]) / map_resolution_;
         int ogm_laser_position_y = map_height_ - 1 - (laser_position_y - map_origin_[1]) / map_resolution_;

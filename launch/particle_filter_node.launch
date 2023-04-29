@@ -1,0 +1,6 @@
+<launch>
+    <node pkg="map_server" type="map_server" name="map_server" args="$(find particle_filter)/config/ogm.yaml">
+    </node>
+    <node pkg="particle_filter" type="particle_filter_node" name="particle_filter_node" output="screen">
+    </node>
+</launch>

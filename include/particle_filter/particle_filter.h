@@ -5,21 +5,18 @@
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/LaserScan.h>
 #include <tf2_msgs/TFMessage.h>
-#include <geometry_msgs/Point.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <geometry_msgs/Pose.h>
+#include <geometry_msgs/Pose2D.h>
+#include <geometry_msgs/PoseArray.h>
 #include <opencv2/opencv.hpp>
+#include "particle_filter/utils.h"
 
 class ParticleFilter
 {
 public:
     ParticleFilter(ros::NodeHandle& nh);
     ~ParticleFilter();
-    
-    struct Pose
-    {
-        double position_x;
-        double position_y;
-        double angule_z;
-    };
 
 protected:
     void mclLoop();
@@ -32,10 +29,10 @@ protected:
     void estimatePose(const std::vector<double>& particle_weights);
     void resampleParticles(const std::vector<double>& particle_weights);
 
-    double calulateLogLikelihoodPerParticle(const ParticleFilter::Pose pose, const std::vector<double>& laser_ranges);
+    double calulateLogLikelihoodPerParticle(const geometry_msgs::Pose2D::ConstPtr& pose, const std::vector<double>& laser_ranges);
     std::vector<double> pMax(const std::vector<double>& laser_ranges);
     double pRand();
-    std::vector<double> pHit(const ParticleFilter::Pose pose, const std::vector<double>& laser_ranges);
+    std::vector<double> pHit(const geometry_msgs::Pose2D::ConstPtr& pose, const std::vector<double>& laser_ranges);
 
     void odomCallback(const nav_msgs::Odometry::ConstPtr& msg);
     void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
@@ -48,13 +45,14 @@ private:
     ros::Subscriber sub_odom_;
     ros::Subscriber sub_scan_;
 
-    Pose pose_ = {0.0, 0.0, 0.0};
+    tf2_ros::TransformBroadcaster br_;
+
+    geometry_msgs::Pose2D::Ptr estimate_pose_;
+    std::vector<geometry_msgs::Pose2D::Ptr> particles_;
+    std::vector<double> laser_ranges_;
 
     double delta_linear_;
     double delta_angular_;
-
-    std::vector<Pose> particles_;
-    std::vector<double> laser_ranges_;
 
     double map_resolution_;
     std::vector<double> map_origin_;
@@ -72,12 +70,11 @@ private:
     const double MAX_LASER_RANGE_ = 30.0;
     const int SCAN_STEP_ = 5;
     const double LFM_VAR_ = 0.01;
-    const double z_max_ = 0.05;
-    const double z_rand_ = 0.05;
-    const double z_hit_ = 0.9;
+    const double Z_MAX_ = 0.05;
+    const double Z_RAND_ = 0.05;
+    const double Z_HIT_ = 0.9;
     const double RESAMPLE_THRESHOLD_ = 0.5;
-    
-    const double x_lider_ = 0.5;
+    const double X_LIDER_ = 0.5;
 };
 
 #endif
