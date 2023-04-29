@@ -194,8 +194,7 @@ void ParticleFilter::resampleParticles(const std::vector<double>& particle_weigh
     {
         auto it = std::lower_bound(particle_weight_partial_sums.begin(), particle_weight_partial_sums.end(), dist_1(engine));
         size_t j = std::distance(particle_weight_partial_sums.begin(), it);
-        particles_[i] = particles_[j];
-        // ROS_INFO("%ld", j);
+        *particles_[i] = *particles_[j];
     }
 }
 
