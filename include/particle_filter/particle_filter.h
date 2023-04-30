@@ -34,13 +34,15 @@ protected:
     double pRand();
     std::vector<double> pHit(const geometry_msgs::Pose2D::ConstPtr& pose, const std::vector<double>& laser_ranges);
 
+    geometry_msgs::PoseArray::Ptr createPoseArrayOfParticles();
+
     void odomCallback(const nav_msgs::Odometry::ConstPtr& msg);
     void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
 
 private:
     ros::NodeHandle& nh_;
 
-    ros::Publisher pub_tf_;
+    ros::Publisher pub_particles_;
 
     ros::Subscriber sub_odom_;
     ros::Subscriber sub_scan_;

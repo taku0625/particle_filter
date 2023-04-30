@@ -19,6 +19,8 @@ ParticleFilter::ParticleFilter(ros::NodeHandle& nh)
     estimate_pose_->theta = 0.0;
     initializeParticles();
 
+    pub_particles_ = nh_.advertise<geometry_msgs::PoseArray>("/particles", 1, this);
+
     sub_odom_ = nh_.subscribe("/odom", 1, &ParticleFilter::odomCallback, this);
     sub_scan_ = nh_.subscribe("/scan", 1, &ParticleFilter::scanCallback, this);
 }
@@ -47,14 +49,6 @@ void ParticleFilter::mclLoop()
     {
         resampleParticles(likelihoods);
     }
-
-    geometry_msgs::Transform::Ptr tf = createTransform(estimate_pose_);
-    geometry_msgs::TransformStamped::Ptr tfs = createTransformStamped(tf, FRAME_ID_, CHILD_FRAME_ID_);
-    br_.sendTransform(*tfs);
-
-    ROS_INFO("%lf", estimate_pose_->x);
-    ROS_INFO("%lf", estimate_pose_->y);
-    ROS_INFO("%lf", estimate_pose_->theta);
 }
 
 void ParticleFilter::readMap(std::string yaml_file_path, std::string img_file_path)
@@ -263,11 +257,33 @@ std::vector<double> ParticleFilter::pHit(const geometry_msgs::Pose2D::ConstPtr& 
     return p_hit;
 }
 
+geometry_msgs::PoseArray::Ptr ParticleFilter::createPoseArrayOfParticles()
+{
+    geometry_msgs::PoseArray::Ptr pa(new geometry_msgs::PoseArray());
+    pa->poses.resize(particles_.size());
+    for(size_t i = 0; i < particles_.size(); ++i)
+    {
+        pa->poses[i] = *createPose(particles_[i]);
+    }
+    return pa;
+}
+
 void ParticleFilter::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
     delta_linear_ = msg->twist.twist.linear.x / ODOM_HZ_;
     delta_angular_ = msg->twist.twist.angular.z / ODOM_HZ_;
     mclLoop();
+
+    geometry_msgs::Transform::Ptr tf = createTransform(estimate_pose_);
+    geometry_msgs::TransformStamped::Ptr tfs = createTransformStamped(tf, FRAME_ID_, CHILD_FRAME_ID_);
+    br_.sendTransform(*tfs);
+
+    geometry_msgs::PoseArray::Ptr pa = createPoseArrayOfParticles();
+    pub_particles_.publish(pa);
+
+    ROS_INFO("%lf", estimate_pose_->x);
+    ROS_INFO("%lf", estimate_pose_->y);
+    ROS_INFO("%lf", estimate_pose_->theta);
 }
 
 void ParticleFilter::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
