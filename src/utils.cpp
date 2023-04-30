@@ -1,6 +1,6 @@
 #include "particle_filter/utils.h"
 
-geometry_msgs::Pose::Ptr createPoseMsg(const geometry_msgs::Pose2D::ConstPtr& pose2d)
+geometry_msgs::Pose::Ptr createPose(const geometry_msgs::Pose2D::ConstPtr& pose2d)
 {
     geometry_msgs::Pose::Ptr pose(new geometry_msgs::Pose());
     pose->position.x = pose2d->x;
@@ -13,7 +13,7 @@ geometry_msgs::Pose::Ptr createPoseMsg(const geometry_msgs::Pose2D::ConstPtr& po
     return pose;
 }
 
-geometry_msgs::Transform::Ptr createTransformMsg(const geometry_msgs::Pose2D::ConstPtr& pose2d)
+geometry_msgs::Transform::Ptr createTransform(const geometry_msgs::Pose2D::ConstPtr& pose2d)
 {
     geometry_msgs::Transform::Ptr transform(new geometry_msgs::Transform());
     transform->translation.x = pose2d->x;
@@ -30,11 +30,12 @@ geometry_msgs::TransformStamped::Ptr createTransformStamped(
     const geometry_msgs::Transform::ConstPtr& transform, const std::string frame_id, const std::string child_frame_id
 )
 {
-    geometry_msgs::TransformStamped::Ptr transform_stamped;
+    geometry_msgs::TransformStamped::Ptr transform_stamped(new geometry_msgs::TransformStamped());
     transform_stamped->header.stamp = ros::Time::now();
     transform_stamped->header.frame_id = frame_id;
     transform_stamped->child_frame_id = child_frame_id;
     transform_stamped->transform = *transform;
+    return transform_stamped;
 }
 
 

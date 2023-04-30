@@ -19,8 +19,6 @@ ParticleFilter::ParticleFilter(ros::NodeHandle& nh)
     estimate_pose_->theta = 0.0;
     initializeParticles();
 
-    pub_tf_ = nh_.advertise<geometry_msgs::Point>("/estimate_pose", 1, this);
-
     sub_odom_ = nh_.subscribe("/odom", 1, &ParticleFilter::odomCallback, this);
     sub_scan_ = nh_.subscribe("/scan", 1, &ParticleFilter::scanCallback, this);
 }
@@ -49,6 +47,10 @@ void ParticleFilter::mclLoop()
     {
         resampleParticles(likelihoods);
     }
+
+    geometry_msgs::Transform::Ptr tf = createTransform(estimate_pose_);
+    geometry_msgs::TransformStamped::Ptr tfs = createTransformStamped(tf, FRAME_ID_, CHILD_FRAME_ID_);
+    br_.sendTransform(*tfs);
 
     ROS_INFO("%lf", estimate_pose_->x);
     ROS_INFO("%lf", estimate_pose_->y);

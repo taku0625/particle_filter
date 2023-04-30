@@ -75,6 +75,8 @@ private:
     const double Z_HIT_ = 0.9;
     const double RESAMPLE_THRESHOLD_ = 0.5;
     const double X_LIDER_ = 0.5;
+    const std::string FRAME_ID_ = "/map";
+    const std::string CHILD_FRAME_ID_ = "/estimate_pose";
 };
 
 #endif

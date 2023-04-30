@@ -4,7 +4,7 @@
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Pose2D.h>
 #include <geometry_msgs/Transform.h>
-#include <tf2_ros/transform_broadcaster.h>
+#include <geometry_msgs/TransformStamped.h>
 
 geometry_msgs::Pose::Ptr createPose(const geometry_msgs::Pose2D::ConstPtr& pose2d);
 geometry_msgs::Transform::Ptr createTransform(const geometry_msgs::Pose2D::ConstPtr& pose2d);
