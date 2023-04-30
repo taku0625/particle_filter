@@ -35,7 +35,7 @@ void ParticleFilter::mclLoop()
     double delta_linear = delta_linear_;
     double delta_angular = delta_angular_;
     std::vector<double> laser_ranges = laser_ranges_;
-    
+
     updateParticlesByOperatingModel(delta_linear, delta_angular);
     std::vector<double> likelihoods = calculateLikelihoods(laser_ranges);
     estimatePose(likelihoods);
@@ -55,28 +55,17 @@ void ParticleFilter::readMap(std::string yaml_file_path, std::string img_file_pa
 {
     YAML::Node lconf = YAML::LoadFile(yaml_file_path);
     map_resolution_ = lconf["resolution"].as<double>();
-    map_origin_ = lconf["origin"].as<std::vector<double> >();
+    map_origin_ = lconf["origin"].as<std::vector<double>>();
 
-    cv::Mat tmp_map_img = cv::imread(img_file_path, 0);
-    map_width_ = tmp_map_img.cols;
-    map_height_ = tmp_map_img.rows;
+    cv::Mat map_img = cv::imread(img_file_path, cv::IMREAD_GRAYSCALE);
+    map_width_ = map_img.cols;
+    map_height_ = map_img.rows;
 
-    cv::Mat map_img = tmp_map_img.clone();
-    for(int y = 0; y < map_height_; ++y)
-    {
-        for(int x = 0; x < map_width_; ++x)
-        {
-            uchar val = map_img.at<uchar>(y, x);
-            if (val == 0)
-            {
-                map_img.at<uchar>(y, x) = 0;
-            }
-            else
-                map_img.at<uchar>(y, x) = 1;
-        }
-    }
+    cv::Mat bin_img;
+    cv::threshold(map_img, bin_img, 0, 255, cv::THRESH_BINARY);
+
     cv::Mat distance_field(map_height_, map_width_, CV_32FC1);
-    cv::distanceTransform(map_img, distance_field, cv::DIST_L2, 5);
+    cv::distanceTransform(bin_img, distance_field, cv::DIST_L2, 5);
     for(int y = 0; y < map_height_; ++y)
     {
         for(int x = 0; x < map_width_; ++x)
@@ -218,14 +207,14 @@ std::vector<double> ParticleFilter::pMax(const std::vector<double>& laser_ranges
     std::vector<double> p_max(laser_ranges.size());
     for(size_t i = 0; i < laser_ranges.size(); i += SCAN_STEP_)
     {
-        p_max[i] = laser_ranges[i] == MAX_LASER_RANGE_ ? 1.0 / map_resolution_ : 0.0;
+        p_max[i] = laser_ranges[i] == SCAN_RANGE_MAX_ ? 1.0 : 0.0;
     }
     return p_max;
 }
 
 double ParticleFilter::pRand()
 {
-    return 1 / MAX_LASER_RANGE_ * map_resolution_;
+    return 1 / SCAN_RANGE_MAX_;
 }
 
 std::vector<double> ParticleFilter::pHit(const geometry_msgs::Pose2D::ConstPtr& pose, const std::vector<double>& laser_ranges)
@@ -233,11 +222,11 @@ std::vector<double> ParticleFilter::pHit(const geometry_msgs::Pose2D::ConstPtr& 
     std::vector<double> p_hit(laser_ranges.size());
     for(size_t i = 0; i < laser_ranges.size(); i += SCAN_STEP_)
     {
-        double laser_angle = pose->theta + SCAN_ANGLE_MIN_ + (double)i * SCAN_ANGLE_INCREMENT_;
-        // double laser_position_x = pose->x + laser_ranges[i] * std::cos(laser_angle);
-        // double laser_position_y = pose->y + laser_ranges[i] * std::sin(laser_angle);
-        double laser_position_x = pose->x + X_LIDER_ * std::cos(pose->theta) + laser_ranges[i] * std::cos(laser_angle);
-        double laser_position_y = pose->y + X_LIDER_ * std::sin(pose->theta) + laser_ranges[i] * std::sin(laser_angle);
+        if(laser_ranges[i] < SCAN_RANGE_MIN_ || SCAN_RANGE_MAX_ < laser_ranges[i])
+        {
+            p_hit[i] = 0.0;
+            continue;
+        }
         // converted to opencv coordinate axes
         int ogm_laser_position_x = (laser_position_x - map_origin_[0]) / map_resolution_;
         int ogm_laser_position_y = map_height_ - 1 - (laser_position_y - map_origin_[1]) / map_resolution_;
@@ -245,9 +234,8 @@ std::vector<double> ParticleFilter::pHit(const geometry_msgs::Pose2D::ConstPtr& 
         {
             double distance_field_value = (double)distance_field_.at<float>(ogm_laser_position_x, ogm_laser_position_y);
             
-            p_hit[i] = 1.0 / std::sqrt(2.0 * M_PI * LFM_VAR_) 
-                       * std::exp(- std::pow(distance_field_value, 2.0) / (2.0 * LFM_VAR_))
-                       * map_resolution_;
+            p_hit[i] = 1.0 / std::sqrt(2.0 * M_PI * LFM_VAR_)
+                       * std::exp(- std::pow(distance_field_value, 2.0) / (2.0 * LFM_VAR_));
         }
         else
         {
@@ -261,6 +249,8 @@ geometry_msgs::PoseArray::Ptr ParticleFilter::createPoseArrayOfParticles()
 {
     geometry_msgs::PoseArray::Ptr pa(new geometry_msgs::PoseArray());
     pa->poses.resize(particles_.size());
+    pa->header.stamp = ros::Time::now();
+    pa->header.frame_id = FRAME_ID_;
     for(size_t i = 0; i < particles_.size(); ++i)
     {
         pa->poses[i] = *createPose(particles_[i]);
@@ -272,7 +262,11 @@ void ParticleFilter::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
     delta_linear_ = msg->twist.twist.linear.x / ODOM_HZ_;
     delta_angular_ = msg->twist.twist.angular.z / ODOM_HZ_;
-    mclLoop();
+    
+    if(scan_flag_ == true)
+    {
+        mclLoop();
+    }
 
     geometry_msgs::Transform::Ptr tf = createTransform(estimate_pose_);
     geometry_msgs::TransformStamped::Ptr tfs = createTransformStamped(tf, FRAME_ID_, CHILD_FRAME_ID_);
@@ -281,9 +275,9 @@ void ParticleFilter::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
     geometry_msgs::PoseArray::Ptr pa = createPoseArrayOfParticles();
     pub_particles_.publish(pa);
 
-    ROS_INFO("%lf", estimate_pose_->x);
-    ROS_INFO("%lf", estimate_pose_->y);
-    ROS_INFO("%lf", estimate_pose_->theta);
+    ROS_INFO("x%lf", estimate_pose_->x);
+    ROS_INFO("y%lf", estimate_pose_->y);
+    ROS_INFO("theta%lf", estimate_pose_->theta);
 }
 
 void ParticleFilter::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
@@ -291,4 +285,5 @@ void ParticleFilter::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
     laser_ranges_.resize(msg->ranges.size());
     std::transform(msg->ranges.begin(), msg->ranges.end(), laser_ranges_.begin(),
                    [](const float& f) { return static_cast<double>(f); });
+    scan_flag_ = true;
 }

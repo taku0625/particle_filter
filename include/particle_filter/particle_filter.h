@@ -68,8 +68,8 @@ private:
     const double SCAN_ANGLE_MIN_ = -2.356194496154785;
     const double SCAN_ANGLE_MAX_ = 2.356194496154785;
     const double SCAN_ANGLE_INCREMENT_ = 0.004363323096185923;
+    const double SCAN_RANGE_MIN_ = 0.05000000074505806;
     const double SCAN_RANGE_MAX_ = 30.0;
-    const double MAX_LASER_RANGE_ = 30.0;
     const int SCAN_STEP_ = 5;
     const double LFM_VAR_ = 0.01;
     const double Z_MAX_ = 0.05;
@@ -77,8 +77,10 @@ private:
     const double Z_HIT_ = 0.9;
     const double RESAMPLE_THRESHOLD_ = 0.5;
     const double X_LIDER_ = 0.5;
-    const std::string FRAME_ID_ = "/map";
+    const std::string FRAME_ID_ = "map";
     const std::string CHILD_FRAME_ID_ = "/estimate_pose";
+
+    bool scan_flag_ = false;
 };
 
 #endif
