@@ -175,11 +175,12 @@ void ParticleFilter::estimatePose(const std::vector<double>& particle_weights)
 
         double delta_theta = estimate_pose_->theta - particles_[i]->theta;
         // bring delta_theta into -pi < z < pi
-        int n = delta_theta / M_PI;
-        delta_theta -= n * M_PI;
+        delta_theta = normalize_angle(delta_theta);
         estimate_pose->theta += particle_weights[i] * delta_theta;
     }
     estimate_pose->theta = estimate_pose_->theta - estimate_pose->theta;
+    // bring theta into -pi < z < pi
+    estimate_pose->theta = normalize_angle(estimate_pose->theta);
     estimate_pose_ = estimate_pose;
 }
 

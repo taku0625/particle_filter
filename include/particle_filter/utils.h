@@ -14,4 +14,6 @@ geometry_msgs::TransformStamped::Ptr createTransformStamped(
 geometry_msgs::Pose::Ptr convertTransform2Pose(const geometry_msgs::Transform::ConstPtr& tf_data);
 geometry_msgs::Transform::Ptr convertPose2Transform(const geometry_msgs::Pose::ConstPtr& pose);
 
+double normalize_angle(double angle);
+
 #endif
