@@ -261,7 +261,7 @@ std::vector<double> ParticleFilter::pHit(const geometry_msgs::Pose2D::ConstPtr& 
         int ogm_laser_position_y = map_height_ - 1 - (laser_position_y - map_origin_[1]) / map_resolution_;
         if(0 <= ogm_laser_position_x && ogm_laser_position_x < map_width_ && 0 <= ogm_laser_position_y && ogm_laser_position_y < map_height_)
         {
-            double distance_field_value = (double)distance_field_.at<float>(ogm_laser_position_x, ogm_laser_position_y);
+            double distance_field_value = (double)distance_field_.at<float>(ogm_laser_position_y, ogm_laser_position_x);
             if(flag_ == true)
             {
                 // ROS_INFO("map_origin_x%lf", map_origin_[0]);
