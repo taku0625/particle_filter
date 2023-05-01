@@ -264,11 +264,20 @@ std::vector<double> ParticleFilter::pHit(const geometry_msgs::Pose2D::ConstPtr& 
             double distance_field_value = (double)distance_field_.at<float>(ogm_laser_position_x, ogm_laser_position_y);
             if(flag_ == true)
             {
-                // ROS_INFO("x%lf", laser_position_x);
-                // ROS_INFO("y%lf", laser_position_y);
-                // ROS_INFO("ogmx%d", ogm_laser_position_x);
-                // ROS_INFO("ogmy%d", ogm_laser_position_y);
-                // sum += distance_field_value;
+                // ROS_INFO("map_origin_x%lf", map_origin_[0]);
+                // ROS_INFO("map_origin_y%lf", map_origin_[1]);
+                // ROS_INFO("map_resolution%lf", map_resolution_);
+                ROS_INFO("i%ld", i);
+                // ROS_INFO("x%lf", estimate_pose_->x);
+                // ROS_INFO("y%lf", estimate_pose_->y);
+                // ROS_INFO("theta%lf", estimate_pose_->theta);
+                ROS_INFO("laser_range%lf", laser_ranges[i]);
+                ROS_INFO("laser_angle%lf", laser_angle);
+                ROS_INFO("x%lf", laser_position_x);
+                ROS_INFO("y%lf", laser_position_y);
+                ROS_INFO("ogmx%d", ogm_laser_position_x);
+                ROS_INFO("ogmy%d", ogm_laser_position_y);
+                sum += distance_field_value;
                 ROS_INFO("%lf", distance_field_value);
             }
             p_hit[i] = 1.0 / std::sqrt(2.0 * M_PI * LFM_VAR_)
@@ -313,9 +322,9 @@ void ParticleFilter::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
     geometry_msgs::PoseArray::Ptr pa = createPoseArrayOfParticles();
     pub_particles_.publish(pa);
 
-    ROS_INFO("x%lf", estimate_pose_->x);
-    ROS_INFO("y%lf", estimate_pose_->y);
-    ROS_INFO("theta%lf", estimate_pose_->theta);
+    // ROS_INFO("x%lf", estimate_pose_->x);
+    // ROS_INFO("y%lf", estimate_pose_->y);
+    // ROS_INFO("theta%lf", estimate_pose_->theta);
 }
 
 void ParticleFilter::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
