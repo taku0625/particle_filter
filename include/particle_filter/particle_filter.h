@@ -81,7 +81,6 @@ private:
     const std::string CHILD_FRAME_ID_ = "/estimate_pose";
 
     bool scan_flag_ = false;
-    bool flag_ = true;
 };
 
 #endif

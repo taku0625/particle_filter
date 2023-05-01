@@ -74,13 +74,6 @@ void ParticleFilter::readMap(std::string yaml_file_path, std::string img_file_pa
             distance_field.at<float>(y, x) = distance;
         }
     }
-    // cv::namedWindow("m", cv::WINDOW_NORMAL);
-    // cv::namedWindow("d", cv::WINDOW_NORMAL);
-    // cv::imshow("m", distance_field);
-    // cv::imshow("d", bin_img);
-    // cv::resizeWindow("m", 300, 200);
-    // cv::resizeWindow("d", 300, 200);
-    // cv::waitKey();
     distance_field_ = distance_field.clone();
 }
 
@@ -133,7 +126,6 @@ std::vector<double> ParticleFilter::calculateLikelihoods(const std::vector<doubl
     for(size_t i = 0; i < particles_.size(); ++i)
     {
         log_likelihoods[i] = calulateLogLikelihoodPerParticle(particles_[i], laser_ranges);
-        // ROS_INFO("%lf", log_likelihoods[i]);
     }
 
     // likelihood shift to prevent underflow
@@ -144,16 +136,6 @@ std::vector<double> ParticleFilter::calculateLikelihoods(const std::vector<doubl
     std::transform(log_likelihoods.begin(), log_likelihoods.end(), likelihoods.begin(),
                    [](double x){ return std::exp(x); });
     double total_likelihood = std::accumulate(likelihoods.begin(), likelihoods.end(), 0.0);
-    // ROS_INFO("%lf", max_log_likelihood);
-    // ROS_INFO("%lf", total_likelihood);
-    for(size_t i = 0; i < particles_.size(); ++i)
-    {
-        // ROS_INFO("%ld", i);
-        // ROS_INFO("%lf", log_likelihoods[i]);
-        // ROS_INFO("%lf", likelihoods[i]);
-    }
-    // ROS_INFO("fkhagk");
-    // normalize likelihood
     std::transform(likelihoods.begin(), likelihoods.end(), normalized_likelihoods.begin(),
                    [total_likelihood](double x){ return x / total_likelihood; });
 
@@ -169,10 +151,6 @@ void ParticleFilter::estimatePose(const std::vector<double>& particle_weights)
 
     for(size_t i = 0; i < particles_.size(); ++i)
     {
-        // ROS_INFO("x%lf", particles_[i]->x);
-        // ROS_INFO("y%lf", particles_[i]->y);
-        // ROS_INFO("t%lf", particles_[i]->theta);
-        // ROS_INFO("w%lf", particle_weights[i]);
         estimate_pose->x += particle_weights[i] * particles_[i]->x;
         estimate_pose->y += particle_weights[i] * particles_[i]->y;
 
@@ -214,10 +192,8 @@ double ParticleFilter::calulateLogLikelihoodPerParticle(const geometry_msgs::Pos
 
     for(size_t i = 0; i < laser_ranges.size(); i += SCAN_STEP_)
     {
-        // ROS_INFO("djasjdkl");
         double p_LFM = Z_MAX_ * p_max[i] + Z_RAND_ * p_rand + Z_HIT_ * p_hit[i];
         p_LFM = p_LFM > 1.0 ? 1.0 : p_LFM;
-        // ROS_INFO("%lf", std::log(p_LFM));
         log_likelihood += std::log(p_LFM);
     }
 
@@ -245,41 +221,22 @@ std::vector<double> ParticleFilter::pHit(const geometry_msgs::Pose2D::ConstPtr& 
     std::vector<double> p_hit(laser_ranges.size());
     for(size_t i = 0; i < laser_ranges.size(); i += SCAN_STEP_)
     {
-        // ROS_INFO("%lf", laser_ranges[i]);
         if(laser_ranges[i] < SCAN_RANGE_MIN_ || SCAN_RANGE_MAX_ < laser_ranges[i])
         {
             p_hit[i] = 0.0;
             continue;
         }
-        double laser_angle = estimate_pose_->theta + SCAN_ANGLE_MIN_ + (double)i * SCAN_ANGLE_INCREMENT_;
-        // double laser_position_x = estimate_pose_->x + laser_ranges[i] * std::cos(laser_angle);
-        // double laser_position_y = estimate_pose_->y + laser_ranges[i] * std::sin(laser_angle);
-        double laser_position_x = estimate_pose_->x + X_LIDER_ * std::cos(estimate_pose_->theta) + laser_ranges[i] * std::cos(laser_angle);
-        double laser_position_y = estimate_pose_->y + X_LIDER_ * std::sin(estimate_pose_->theta) + laser_ranges[i] * std::sin(laser_angle);
+        double laser_angle = pose->theta + SCAN_ANGLE_MIN_ + (double)i * SCAN_ANGLE_INCREMENT_;
+        // double laser_position_x = pose->x + laser_ranges[i] * std::cos(laser_angle);
+        // double laser_position_y = pose->y + laser_ranges[i] * std::sin(laser_angle);
+        double laser_position_x = pose->x + X_LIDER_ * std::cos(pose->theta) + laser_ranges[i] * std::cos(laser_angle);
+        double laser_position_y = pose->y + X_LIDER_ * std::sin(pose->theta) + laser_ranges[i] * std::sin(laser_angle);
         // converted to opencv coordinate axes
         int ogm_laser_position_x = (laser_position_x - map_origin_[0]) / map_resolution_;
         int ogm_laser_position_y = map_height_ - 1 - (laser_position_y - map_origin_[1]) / map_resolution_;
         if(0 <= ogm_laser_position_x && ogm_laser_position_x < map_width_ && 0 <= ogm_laser_position_y && ogm_laser_position_y < map_height_)
         {
             double distance_field_value = (double)distance_field_.at<float>(ogm_laser_position_y, ogm_laser_position_x);
-            if(flag_ == true)
-            {
-                // ROS_INFO("map_origin_x%lf", map_origin_[0]);
-                // ROS_INFO("map_origin_y%lf", map_origin_[1]);
-                // ROS_INFO("map_resolution%lf", map_resolution_);
-                ROS_INFO("i%ld", i);
-                // ROS_INFO("x%lf", estimate_pose_->x);
-                // ROS_INFO("y%lf", estimate_pose_->y);
-                // ROS_INFO("theta%lf", estimate_pose_->theta);
-                ROS_INFO("laser_range%lf", laser_ranges[i]);
-                ROS_INFO("laser_angle%lf", laser_angle);
-                ROS_INFO("x%lf", laser_position_x);
-                ROS_INFO("y%lf", laser_position_y);
-                ROS_INFO("ogmx%d", ogm_laser_position_x);
-                ROS_INFO("ogmy%d", ogm_laser_position_y);
-                sum += distance_field_value;
-                ROS_INFO("%lf", distance_field_value);
-            }
             p_hit[i] = 1.0 / std::sqrt(2.0 * M_PI * LFM_VAR_)
                        * std::exp(- std::pow(distance_field_value, 2.0) / (2.0 * LFM_VAR_));
         }
@@ -288,7 +245,6 @@ std::vector<double> ParticleFilter::pHit(const geometry_msgs::Pose2D::ConstPtr& 
             p_hit[i] = 0.0;
         }
     }
-    flag_ = false;
     return p_hit;
 }
 
@@ -322,9 +278,9 @@ void ParticleFilter::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
     geometry_msgs::PoseArray::Ptr pa = createPoseArrayOfParticles();
     pub_particles_.publish(pa);
 
-    // ROS_INFO("x%lf", estimate_pose_->x);
-    // ROS_INFO("y%lf", estimate_pose_->y);
-    // ROS_INFO("theta%lf", estimate_pose_->theta);
+    ROS_INFO("x%lf", estimate_pose_->x);
+    ROS_INFO("y%lf", estimate_pose_->y);
+    ROS_INFO("theta%lf", estimate_pose_->theta);
 }
 
 void ParticleFilter::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
