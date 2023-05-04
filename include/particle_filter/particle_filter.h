@@ -49,8 +49,6 @@ private:
     ros::Subscriber sub_odom_;
     ros::Subscriber sub_scan_;
 
-    ros::Timer timer_tf_listen_;
-
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformBroadcaster tf_broadcaster_;
     tf2_ros::TransformListener tf_listener_;
@@ -83,8 +81,6 @@ private:
     const double Z_HIT_ = 0.9;
     const double RESAMPLE_THRESHOLD_ = 0.5;
     const double X_LIDER_ = 0.5;
-    const std::string FRAME_ID_ = "map";
-    const std::string CHILD_FRAME_ID_ = "/estimate_pose";
 
     bool scan_flag_ = false;
 };

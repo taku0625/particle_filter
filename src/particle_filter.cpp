@@ -158,12 +158,12 @@ void ParticleFilter::estimatePose(const std::vector<double>& particle_weights)
 
         double delta_theta = estimate_pose_->theta - particles_[i]->theta;
         // bring delta_theta into -pi < z < pi
-        delta_theta = normalize_angle(delta_theta);
+        delta_theta = normalizeAngle(delta_theta);
         estimate_pose->theta += particle_weights[i] * delta_theta;
     }
     estimate_pose->theta = estimate_pose_->theta - estimate_pose->theta;
     // bring theta into -pi < z < pi
-    estimate_pose->theta = normalize_angle(estimate_pose->theta);
+    estimate_pose->theta = normalizeAngle(estimate_pose->theta);
     estimate_pose_ = estimate_pose;
 }
 
@@ -255,7 +255,7 @@ geometry_msgs::PoseArray::Ptr ParticleFilter::createPoseArrayOfParticles()
     geometry_msgs::PoseArray::Ptr pa(new geometry_msgs::PoseArray());
     pa->poses.resize(particles_.size());
     pa->header.stamp = ros::Time::now();
-    pa->header.frame_id = FRAME_ID_;
+    pa->header.frame_id = "map";
     for(size_t i = 0; i < particles_.size(); ++i)
     {
         pa->poses[i] = *createPose(particles_[i]);
@@ -304,7 +304,7 @@ void ParticleFilter::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
     delta_linear_ = msg->twist.twist.linear.x / ODOM_HZ_;
     delta_angular_ = msg->twist.twist.angular.z / ODOM_HZ_;
     
-    if(scan_flag_ == true)
+    if(scan_flag_)
     {
         mclLoop();
     }
@@ -321,9 +321,9 @@ void ParticleFilter::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
     geometry_msgs::PoseArray::Ptr pa = createPoseArrayOfParticles();
     pub_particles_.publish(pa);
 
-    ROS_INFO("x%lf", estimate_pose_->x);
-    ROS_INFO("y%lf", estimate_pose_->y);
-    ROS_INFO("theta%lf", estimate_pose_->theta);
+    ROS_INFO("   x   : %lf", estimate_pose_->x);
+    ROS_INFO("   y   : %lf", estimate_pose_->y);
+    ROS_INFO(" theta : %lf", estimate_pose_->theta);
 }
 
 void ParticleFilter::scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)

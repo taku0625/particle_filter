@@ -65,7 +65,7 @@ geometry_msgs::Transform::Ptr convertPose2Transform(const geometry_msgs::Pose::C
     return transform;
 }
 
-double normalize_angle(double angle)
+double normalizeAngle(double angle)
 {
     angle = std::fmod(angle, 2 * M_PI);
     if (angle > M_PI) {
