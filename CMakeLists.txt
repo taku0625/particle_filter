@@ -19,6 +19,7 @@ catkin_package(
     include
   LIBRARIES
     ${PROJECT_NAME}
+    likelihood_field_model
     utils
   CATKIN_DEPENDS
     roscpp
@@ -41,6 +42,10 @@ add_library(utils
   src/utils.cpp
 )
 
+add_library(likelihood_field_model
+  src/likelihood_field_model.cpp
+)
+
 add_library(${PROJECT_NAME}
   src/${PROJECT_NAME}.cpp
 )
@@ -49,10 +54,17 @@ target_link_libraries(utils
   ${catkin_LIBRARIES}
 )
 
+target_link_libraries(likelihood_field_model
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBS}
+  ${YAML_CPP_LIBRARIES}
+)
+
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
   ${YAML_CPP_LIBRARIES}
+  likelihood_field_model
   utils
 )
 
@@ -60,6 +72,7 @@ add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.cpp)
 
 target_link_libraries(${PROJECT_NAME}_node
   ${PROJECT_NAME}
+  likelihood_field_model
   utils
 )
 
