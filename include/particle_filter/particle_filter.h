@@ -6,6 +6,7 @@
 #include <sensor_msgs/LaserScan.h>
 #include <tf2_msgs/TFMessage.h>
 #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Pose2D.h>
 #include <geometry_msgs/PoseArray.h>
@@ -35,6 +36,7 @@ protected:
     std::vector<double> pHit(const geometry_msgs::Pose2D::ConstPtr& pose, const std::vector<double>& laser_ranges);
 
     geometry_msgs::PoseArray::Ptr createPoseArrayOfParticles();
+    geometry_msgs::TransformStamped::Ptr createTransformStampedOfOdomOnMap();
 
     void odomCallback(const nav_msgs::Odometry::ConstPtr& msg);
     void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg);
@@ -47,7 +49,11 @@ private:
     ros::Subscriber sub_odom_;
     ros::Subscriber sub_scan_;
 
-    tf2_ros::TransformBroadcaster br_;
+    ros::Timer timer_tf_listen_;
+
+    tf2_ros::Buffer tf_buffer_;
+    tf2_ros::TransformBroadcaster tf_broadcaster_;
+    tf2_ros::TransformListener tf_listener_;
 
     geometry_msgs::Pose2D::Ptr estimate_pose_;
     std::vector<geometry_msgs::Pose2D::Ptr> particles_;

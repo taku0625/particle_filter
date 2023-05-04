@@ -5,12 +5,14 @@
 #include <yaml-cpp/yaml.h>
 #include <geometry_msgs/Point.h>
 #include <tf2/convert.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
 
 
 using namespace std;
 
 ParticleFilter::ParticleFilter(ros::NodeHandle& nh)
-    : nh_(nh)
+    : nh_(nh), tf_buffer_(), tf_listener_(tf_buffer_)
 {
     readMap("/home/takumiti/catkin_ws/src/particle_filter/config/ogm.yaml", "/home/takumiti/catkin_ws/src/particle_filter/config/ogm.pgm");
     estimate_pose_.reset(new geometry_msgs::Pose2D());
@@ -261,6 +263,42 @@ geometry_msgs::PoseArray::Ptr ParticleFilter::createPoseArrayOfParticles()
     return pa;
 }
 
+// Calculate the position of the odom relative to the map to align 
+// the base_link with the estimate_pose of the map coordinate system.
+geometry_msgs::TransformStamped::Ptr ParticleFilter::createTransformStampedOfOdomOnMap()
+{
+    geometry_msgs::TransformStamped::Ptr base_link_on_odom(new geometry_msgs::TransformStamped());
+    try
+    {
+        *base_link_on_odom = tf_buffer_.lookupTransform("odom", "base_link", ros::Time(0));
+    }
+    catch(const tf2::TransformException& ex)
+    {
+        ROS_WARN("%s", ex.what());
+        return nullptr;
+    }
+
+    geometry_msgs::Transform::Ptr odom_on_map(new geometry_msgs::Transform());
+    geometry_msgs::Transform::Ptr estimate_pose_on_map = createTransform(estimate_pose_);
+
+    // translation
+    odom_on_map->translation.x = estimate_pose_on_map->translation.x - base_link_on_odom->transform.translation.x;
+    odom_on_map->translation.y = estimate_pose_on_map->translation.y - base_link_on_odom->transform.translation.y;
+
+    // rotation
+    tf2::Quaternion q_base_link, q_estimate_pose;
+    q_base_link.setZ(base_link_on_odom->transform.rotation.z);
+    q_base_link.setW(base_link_on_odom->transform.rotation.w);
+    q_estimate_pose.setZ(estimate_pose_on_map->rotation.z);
+    q_estimate_pose.setW(estimate_pose_on_map->rotation.w);
+    tf2::Quaternion q_diff = q_base_link * q_estimate_pose.inverse();
+    odom_on_map->rotation.z = q_diff.getZ();
+    odom_on_map->rotation.w = q_diff.getW();
+
+    geometry_msgs::TransformStamped::Ptr tfs = createTransformStamped(odom_on_map, "map", "odom");
+    return tfs;
+}
+
 void ParticleFilter::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
     delta_linear_ = msg->twist.twist.linear.x / ODOM_HZ_;
@@ -271,9 +309,14 @@ void ParticleFilter::odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
         mclLoop();
     }
 
+    if(geometry_msgs::TransformStamped::Ptr tfs = createTransformStampedOfOdomOnMap())
+    {
+        tf_broadcaster_.sendTransform(*tfs);
+    }
+
     geometry_msgs::Transform::Ptr tf = createTransform(estimate_pose_);
-    geometry_msgs::TransformStamped::Ptr tfs = createTransformStamped(tf, FRAME_ID_, CHILD_FRAME_ID_);
-    br_.sendTransform(*tfs);
+    geometry_msgs::TransformStamped::Ptr tfs = createTransformStamped(tf, "map", "estimate_pose");
+    tf_broadcaster_.sendTransform(*tfs);
 
     geometry_msgs::PoseArray::Ptr pa = createPoseArrayOfParticles();
     pub_particles_.publish(pa);
