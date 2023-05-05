@@ -38,7 +38,7 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
 )
 
-add_library(utils
+add_library(${PROJECT_NAME}_utils
   src/utils.cpp
 )
 
@@ -50,7 +50,7 @@ add_library(${PROJECT_NAME}
   src/${PROJECT_NAME}.cpp
 )
 
-target_link_libraries(utils
+target_link_libraries(${PROJECT_NAME}_utils
   ${catkin_LIBRARIES}
 )
 
@@ -65,7 +65,7 @@ target_link_libraries(${PROJECT_NAME}
   ${OpenCV_LIBS}
   ${YAML_CPP_LIBRARIES}
   likelihood_field_model
-  utils
+  ${PROJECT_NAME}_utils
 )
 
 add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.cpp)
@@ -73,7 +73,7 @@ add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}_node.cpp)
 target_link_libraries(${PROJECT_NAME}_node
   ${PROJECT_NAME}
   likelihood_field_model
-  utils
+  ${PROJECT_NAME}_utils
 )
 
 set(CMAKE_BUILD_TYPE Debug)
