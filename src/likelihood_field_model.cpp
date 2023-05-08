@@ -45,10 +45,10 @@ double LikelihoodFieldModel::calulateLogLikelihoodPerParticle(const geometry_msg
     double p_rand = pRand();
     std::vector<double> p_hit = pHit(pose, laser_ranges);
 
-    for(size_t i = 0; i < laser_ranges.size(); i += SCAN_STEP_)
+    for(size_t i = 0; i < static_cast<size_t>(laser_ranges.size()); i += SCAN_STEP_)
     {
         double p_LFM = Z_MAX_ * p_max[i] + Z_RAND_ * p_rand + Z_HIT_ * p_hit[i];
-        p_LFM = p_LFM > 1.0 ? 1.0 : p_LFM;
+        p_LFM = std::max(p_LFM, 1.0);
         log_likelihood += std::log(p_LFM);
     }
 
@@ -58,7 +58,7 @@ double LikelihoodFieldModel::calulateLogLikelihoodPerParticle(const geometry_msg
 std::vector<double> LikelihoodFieldModel::pMax(const std::vector<double>& laser_ranges)
 {
     std::vector<double> p_max(laser_ranges.size());
-    for(size_t i = 0; i < laser_ranges.size(); i += SCAN_STEP_)
+    for(size_t i = 0; i < static_cast<size_t>(laser_ranges.size()); i += SCAN_STEP_)
     {
         p_max[i] = laser_ranges[i] == SCAN_RANGE_MAX_ ? 1.0 : 0.0;
     }
@@ -72,9 +72,8 @@ double LikelihoodFieldModel::pRand()
 
 std::vector<double> LikelihoodFieldModel::pHit(const geometry_msgs::Pose2D::ConstPtr& pose, const std::vector<double>& laser_ranges)
 {
-    double sum = 0.0;
     std::vector<double> p_hit(laser_ranges.size());
-    for(size_t i = 0; i < laser_ranges.size(); i += SCAN_STEP_)
+    for(size_t i = 0; i < static_cast<size_t>(laser_ranges.size()); i += SCAN_STEP_)
     {
         if(laser_ranges[i] < SCAN_RANGE_MIN_ || SCAN_RANGE_MAX_ < laser_ranges[i])
         {
@@ -82,13 +81,13 @@ std::vector<double> LikelihoodFieldModel::pHit(const geometry_msgs::Pose2D::Cons
             continue;
         }
         double laser_angle = pose->theta + SCAN_ANGLE_MIN_ + (double)i * SCAN_ANGLE_INCREMENT_;
-        // double laser_position_x = pose->x + laser_ranges[i] * std::cos(laser_angle);
-        // double laser_position_y = pose->y + laser_ranges[i] * std::sin(laser_angle);
-        double laser_position_x = pose->x + X_LIDER_ * std::cos(pose->theta) + laser_ranges[i] * std::cos(laser_angle);
-        double laser_position_y = pose->y + X_LIDER_ * std::sin(pose->theta) + laser_ranges[i] * std::sin(laser_angle);
+        double laser_position_x = pose->x + laser_ranges[i] * std::cos(laser_angle);
+        double laser_position_y = pose->y + laser_ranges[i] * std::sin(laser_angle);
+        // double laser_position_x = pose->x + X_LIDER_ * std::cos(pose->theta) + laser_ranges[i] * std::cos(laser_angle);
+        // double laser_position_y = pose->y + X_LIDER_ * std::sin(pose->theta) + laser_ranges[i] * std::sin(laser_angle);
         // converted to opencv coordinate axes
-        int ogm_laser_position_x = (laser_position_x - map_origin_[0]) / map_resolution_;
-        int ogm_laser_position_y = map_height_ - 1 - (laser_position_y - map_origin_[1]) / map_resolution_;
+        int ogm_laser_position_x = std::rint((laser_position_x - map_origin_[0]) / map_resolution_);
+        int ogm_laser_position_y = std::rint(map_height_ -1 - (laser_position_y - map_origin_[1]) / map_resolution_);
         if(0 <= ogm_laser_position_x && ogm_laser_position_x < map_width_ && 0 <= ogm_laser_position_y && ogm_laser_position_y < map_height_)
         {
             double distance_field_value = (double)distance_field_.at<float>(ogm_laser_position_y, ogm_laser_position_x);

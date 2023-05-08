@@ -15,16 +15,13 @@ ParticleFilter::ParticleFilter(ros::NodeHandle& nh)
     : nh_(nh), tf_buffer_(), tf_listener_(tf_buffer_)
 {
     lfm_.reset(new LikelihoodFieldModel(
-        "/home/takumiti/catkin_ws/src/particle_filter/config/ogm.yaml",
-        "/home/takumiti/catkin_ws/src/particle_filter/config/ogm.pgm"
+        "/home/takumiti/AutoNavi/ros/maps/nic_garage/ogm.yaml",
+        "/home/takumiti/AutoNavi/ros/maps/nic_garage/ogm.pgm"
     ));
     estimate_pose_.reset(new geometry_msgs::Pose2D());
-    estimate_pose_->x = 0.0;
-    estimate_pose_->y = 0.0;
-    estimate_pose_->theta = 0.0;
     initializeParticles();
 
-    pub_particles_ = nh_.advertise<geometry_msgs::PoseArray>("/particles", 1, this);
+    pub_particles_ = nh_.advertise<geometry_msgs::PoseArray>("/particles", 1);
 
     sub_odom_ = nh_.subscribe("/odom", 1, &ParticleFilter::odomCallback, this);
     sub_scan_ = nh_.subscribe("/scan", 1, &ParticleFilter::scanCallback, this);
@@ -65,7 +62,7 @@ void ParticleFilter::initializeParticles()
     std::normal_distribution<double> dist_1(0.0, 0.5);
     std::uniform_real_distribution<double> dist_2(0.0, 3.0 * M_PI / 180.0);
 
-    for(size_t i = 0; i < PARTICLE_NUM_; ++i)
+    for(size_t i = 0; i < static_cast<size_t>(PARTICLE_NUM_); ++i)
     {
         particles_[i].reset(new geometry_msgs::Pose2D());
         particles_[i]->x = dist_1(engine);
@@ -88,13 +85,13 @@ void ParticleFilter::updateParticlesByOperatingModel(const double delta_linear, 
     std::normal_distribution<double> delta_linear_with_noise(delta_linear, linear_noise_std);
     std::normal_distribution<double> delta_angular_with_noise(delta_angular, angular_noise_std);
 
-    for(size_t i = 0; i < particles_.size(); ++i)
+    for(size_t i = 0; i < static_cast<size_t>(particles_.size()); ++i)
     {
         particles_[i]->x += delta_linear_with_noise(engine) * std::cos(particles_[i]->theta);
         particles_[i]->y += delta_linear_with_noise(engine) * std::sin(particles_[i]->theta);
         particles_[i]->theta += delta_angular_with_noise(engine);
     }
-};
+}
 
 std::vector<double> ParticleFilter::calculateLikelihoods(const std::vector<double>& laser_ranges)
 {
@@ -102,7 +99,7 @@ std::vector<double> ParticleFilter::calculateLikelihoods(const std::vector<doubl
     std::vector<double> likelihoods(particles_.size());
     std::vector<double> normalized_likelihoods(particles_.size());
 
-    for(size_t i = 0; i < particles_.size(); ++i)
+    for(size_t i = 0; i < static_cast<size_t>(particles_.size()); ++i)
     {
         log_likelihoods[i] = lfm_->calulateLogLikelihoodPerParticle(particles_[i], laser_ranges);
     }
@@ -128,7 +125,7 @@ void ParticleFilter::estimatePose(const std::vector<double>& particle_weights)
     estimate_pose->y = 0.0;
     estimate_pose->theta = 0.0;
 
-    for(size_t i = 0; i < particles_.size(); ++i)
+    for(size_t i = 0; i < static_cast<size_t>(particles_.size()); ++i)
     {
         estimate_pose->x += particle_weights[i] * particles_[i]->x;
         estimate_pose->y += particle_weights[i] * particles_[i]->y;
@@ -153,7 +150,7 @@ void ParticleFilter::resampleParticles(const std::vector<double>& particle_weigh
     std::default_random_engine engine(seed_gen());
     std::uniform_real_distribution<double> dist_1(0.0, 1.0);
 
-    for(size_t i = 0; i < particles_.size(); ++i)
+    for(size_t i = 0; i < static_cast<size_t>(particles_.size()); ++i)
     {
         auto it = std::lower_bound(particle_weight_partial_sums.begin(), particle_weight_partial_sums.end(), dist_1(engine));
         size_t j = std::distance(particle_weight_partial_sums.begin(), it);
@@ -167,7 +164,7 @@ geometry_msgs::PoseArray::Ptr ParticleFilter::createPoseArrayOfParticles()
     pa->poses.resize(particles_.size());
     pa->header.stamp = ros::Time::now();
     pa->header.frame_id = "map";
-    for(size_t i = 0; i < particles_.size(); ++i)
+    for(size_t i = 0; i < static_cast<size_t>(particles_.size()); ++i)
     {
         pa->poses[i] = *createPose(particles_[i]);
     }
@@ -192,19 +189,27 @@ geometry_msgs::TransformStamped::Ptr ParticleFilter::createTransformStampedOfOdo
     geometry_msgs::Transform::Ptr odom_on_map(new geometry_msgs::Transform());
     geometry_msgs::Transform::Ptr estimate_pose_on_map = createTransform(estimate_pose_);
 
-    // translation
-    odom_on_map->translation.x = estimate_pose_on_map->translation.x - base_link_on_odom->transform.translation.x;
-    odom_on_map->translation.y = estimate_pose_on_map->translation.y - base_link_on_odom->transform.translation.y;
+    // odom on map rotation
+    tf2::Quaternion q_base_link_on_odom(0.0, 0.0, 0.0, 1.0);
+    tf2::Quaternion q_estimate_pose_on_map(0.0, 0.0, 0.0, 1.0);
+    q_base_link_on_odom.setZ(base_link_on_odom->transform.rotation.z);
+    q_base_link_on_odom.setW(base_link_on_odom->transform.rotation.w);
+    q_estimate_pose_on_map.setZ(estimate_pose_on_map->rotation.z);
+    q_estimate_pose_on_map.setW(estimate_pose_on_map->rotation.w);
+    double roll, pitch, yaw;
+    tf2::Matrix3x3(q_base_link_on_odom).getRPY(roll, pitch, yaw);
+    double odom_on_map_theta = normalizeAngle(estimate_pose_->theta -yaw);
+    odom_on_map->rotation.z = std::sin(odom_on_map_theta / 2);
+    odom_on_map->rotation.w = std::cos(odom_on_map_theta / 2);
 
-    // rotation
-    tf2::Quaternion q_base_link, q_estimate_pose;
-    q_base_link.setZ(base_link_on_odom->transform.rotation.z);
-    q_base_link.setW(base_link_on_odom->transform.rotation.w);
-    q_estimate_pose.setZ(estimate_pose_on_map->rotation.z);
-    q_estimate_pose.setW(estimate_pose_on_map->rotation.w);
-    tf2::Quaternion q_diff = q_base_link * q_estimate_pose.inverse();
-    odom_on_map->rotation.z = q_diff.getZ();
-    odom_on_map->rotation.w = q_diff.getW();
+    // convert base_link on odom to polar coordinate system because of odom on map rotation
+    double x = base_link_on_odom->transform.translation.x;
+    double y = base_link_on_odom->transform.translation.y;
+    double r = std::sqrt(std::pow(x, 2) + std::pow(y, 2));
+    double theta = std::atan2(y, x);
+    // translation
+    odom_on_map->translation.x = estimate_pose_on_map->translation.x - r * std::cos(theta + odom_on_map_theta);
+    odom_on_map->translation.y = estimate_pose_on_map->translation.y - r * std::sin(theta + odom_on_map_theta);
 
     geometry_msgs::TransformStamped::Ptr tfs = createTransformStamped(odom_on_map, "map", "odom");
     return tfs;

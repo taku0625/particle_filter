@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(particle_filter)
 
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_compile_options(-std=c++14 -O2 -g -Wall)
+
 find_package(OpenCV REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
